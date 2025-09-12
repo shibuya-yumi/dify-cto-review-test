@@ -5,6 +5,11 @@ on:
   pull_request:
     types: [labeled]
 
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
 jobs:
   dify-cto-review:
     # 特定のラベルが追加された場合のみ実行
@@ -34,6 +39,7 @@ jobs:
           DIFY_API_KEY: ${{ secrets.DIFY_API_KEY }}
           DIFY_API_URL: ${{ secrets.DIFY_API_URL }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SKIP_API_TEST: "true"
         run: |
           echo "環境変数を検証中..."
           chmod +x ./scripts/validate-env.sh

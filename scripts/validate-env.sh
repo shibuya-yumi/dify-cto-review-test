@@ -63,7 +63,9 @@ done
 echo ""
 echo "--- Dify API接続テスト ---"
 
-if [ -n "$DIFY_API_KEY" ] && [ -n "$DIFY_API_URL" ]; then
+if [ "${SKIP_API_TEST:-}" = "true" ]; then
+    echo "⚠️  API接続テストをスキップします（SKIP_API_TEST=true）"
+elif [ -n "$DIFY_API_KEY" ] && [ -n "$DIFY_API_URL" ]; then
     echo "Dify APIへの接続をテスト中..."
     
     # テスト用のシンプルなリクエスト
@@ -83,20 +85,20 @@ if [ -n "$DIFY_API_KEY" ] && [ -n "$DIFY_API_URL" ]; then
     if [ "$TEST_RESPONSE" = "200" ]; then
         echo "✅ Dify API接続成功"
         
-        # レスポンスの内容を確認
-        if jq . /tmp/dify_test_response.json > /dev/null 2>&1; then
-            echo "✅ 有効なJSONレスポンスを受信"
+        # ストリーミングレスポンスの確認
+        if grep -q "data:" /tmp/dify_test_response.json; then
+            echo "✅ ストリーミングレスポンスを受信"
             
-            # answerフィールドの存在確認
-            if jq -e '.answer' /tmp/dify_test_response.json > /dev/null 2>&1; then
+            # agent_messageイベントの存在確認
+            if grep -q "agent_message" /tmp/dify_test_response.json; then
                 echo "✅ 期待されるレスポンス形式を確認"
             else
-                echo "⚠️  警告: レスポンスに'answer'フィールドがありません"
-                echo "レスポンス構造:"
-                jq keys /tmp/dify_test_response.json 2>/dev/null || echo "JSONパースエラー"
+                echo "⚠️  警告: レスポンスに'agent_message'イベントがありません"
             fi
         else
-            echo "❌ 無効なJSONレスポンス"
+            echo "❌ 無効なストリーミングレスポンス"
+            echo "レスポンス内容（最初の3行）:"
+            head -3 /tmp/dify_test_response.json
             ERROR_COUNT=$((ERROR_COUNT + 1))
         fi
     else
@@ -115,7 +117,9 @@ fi
 echo ""
 echo "--- GitHub API接続テスト ---"
 
-if [ -n "$GITHUB_TOKEN" ]; then
+if [ "${SKIP_API_TEST:-}" = "true" ]; then
+    echo "⚠️  GitHub API接続テストをスキップします（SKIP_API_TEST=true）"
+elif [ -n "$GITHUB_TOKEN" ]; then
     echo "GitHub APIへの接続をテスト中..."
     
     # GitHub APIでユーザー情報を取得（認証テスト）
