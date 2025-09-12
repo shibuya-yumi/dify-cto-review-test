@@ -68,7 +68,7 @@ if [ "${SKIP_API_TEST:-}" = "true" ]; then
 elif [ -n "$DIFY_API_KEY" ] && [ -n "$DIFY_API_URL" ]; then
     echo "Dify APIへの接続をテスト中..."
     
-    # テスト用のシンプルなリクエスト
+    # テスト用のシンプルなリクエスト（成功パターンに合わせて簡素化）
     TEST_RESPONSE=$(curl -s -w "%{http_code}" -o /tmp/dify_test_response.json \
         -X POST \
         -H "Authorization: Bearer $DIFY_API_KEY" \
@@ -76,8 +76,7 @@ elif [ -n "$DIFY_API_KEY" ] && [ -n "$DIFY_API_URL" ]; then
         -d '{
             "inputs": {},
             "query": "接続テスト",
-            "response_mode": "blocking",
-            "conversation_id": "",
+            "response_mode": "streaming",
             "user": "validation-test"
         }' \
         "$DIFY_API_URL" 2>/dev/null || echo "000")

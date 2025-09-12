@@ -94,14 +94,13 @@ ${ESCAPED_CONTENT}
 
 CTOとしての豊富な経験を活かし、このプロジェクトを成功に導くための戦略的で実践的なアドバイスをお願いします。"
 
-# APIリクエストのJSONペイロードを作成
+# APIリクエストのJSONペイロードを作成（成功パターンに合わせて簡素化）
 PAYLOAD=$(cat << EOF
 {
   "inputs": {},
   "query": "$(json_escape "$PROMPT")",
   "response_mode": "streaming",
-  "conversation_id": "",
-  "user": "cto-review-bot"
+  "user": "github-actions-cto-bot"
 }
 EOF
 )
@@ -116,20 +115,55 @@ setup_cleanup_trap "$PAYLOAD_FILE" "$RESPONSE_FILE"
 echo "$PAYLOAD" > "$PAYLOAD_FILE"
 log_info "ペイロードサイズ: $(echo "$PAYLOAD" | wc -c) バイト"
 
-# Dify APIを呼び出し
+# Dify APIを呼び出し（リトライ機能付き）
 log_info "Dify APIを呼び出し中..."
 
-HTTP_STATUS=$(curl -w "%{http_code}" -s -o "$RESPONSE_FILE" \
-  -X POST \
-  -H "Authorization: Bearer $DIFY_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d @"$PAYLOAD_FILE" \
-  "$DIFY_API_URL")
-
-log_info "HTTPステータス: $HTTP_STATUS"
+# リトライ機能付きスクリプトを使用
+if [ -f "./scripts/retry-dify-api.sh" ]; then
+    chmod +x ./scripts/retry-dify-api.sh
+    
+    log_info "リトライ機能付きでDify APIを呼び出します"
+    if ./scripts/retry-dify-api.sh "$PAYLOAD_FILE" "$RESPONSE_FILE"; then
+        log_success "Dify API呼び出し成功"
+        HTTP_STATUS="200"
+    else
+        log_warn "リトライ機能付きDify API呼び出しが失敗しました。プロキシ経由を試行します"
+        
+        # プロキシ経由での試行
+        if [ -f "./scripts/proxy-dify-api.sh" ]; then
+            chmod +x ./scripts/proxy-dify-api.sh
+            log_info "プロキシ経由でDify APIを呼び出します"
+            
+            if ./scripts/proxy-dify-api.sh "$PAYLOAD_FILE" "$RESPONSE_FILE"; then
+                log_success "プロキシ経由でのDify API呼び出し成功"
+                HTTP_STATUS="200"
+            else
+                log_error "プロキシ経由でのDify API呼び出しも失敗しました"
+                HTTP_STATUS="403"
+            fi
+        else
+            log_error "プロキシスクリプトが見つかりません"
+            HTTP_STATUS="403"
+        fi
+    fi
+else
+    log_warn "リトライスクリプトが見つかりません。通常の呼び出しを実行します"
+    
+    # 成功パターンに合わせてシンプルなcurlコマンドを使用
+    HTTP_STATUS=$(curl -w "%{http_code}" -s -o "$RESPONSE_FILE" \
+      -X POST \
+      -H "Authorization: Bearer $DIFY_API_KEY" \
+      -H "Content-Type: application/json" \
+      -d @"$PAYLOAD_FILE" \
+      "$DIFY_API_URL")
+    
+    log_info "HTTPステータス: $HTTP_STATUS"
+fi
 
 # レスポンスの確認
-check_http_response "$HTTP_STATUS" "200" "Dify API呼び出し"
+if [ "$HTTP_STATUS" != "200" ]; then
+    handle_error 1 "予期しないHTTPステータス: $HTTP_STATUS (期待値: 200)" "Dify API呼び出し"
+fi
 
 log_success "API呼び出し成功"
 
