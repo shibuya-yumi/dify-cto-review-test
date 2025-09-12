@@ -88,13 +88,10 @@ jobs:
           CTO_REVIEW=$(cat "$REVIEW_FILE")
           
           # コメント内容を準備（Markdown形式）
-          COMMENT_BODY="## 🎯 CTO Review for outline.md
-
-$CTO_REVIEW
-
----
-*このレビューはDify CTO Review Botによって自動生成されました*
-*生成時刻: $(date '+%Y-%m-%d %H:%M:%S UTC')*"
+          chmod +x ./scripts/create-pr-comment.sh
+          ./scripts/create-pr-comment.sh "$REVIEW_FILE" /tmp/final_comment.md
+          
+          COMMENT_BODY=$(cat /tmp/final_comment.md)
           
           # GitHub APIを使用してPRにコメント投稿
           HTTP_STATUS=$(curl -w "%{http_code}" -s -o /tmp/comment_response.json \
