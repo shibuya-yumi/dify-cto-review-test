@@ -1,0 +1,111 @@
+# 環境変数ファイル（機密情報を含む）
+.env
+.env.local
+.env.*.local
+
+# ログファイル
+*.log
+debug_*.log
+debug_workflow_*.log
+
+# 一時ファイル
+*.tmp
+*.temp
+/tmp/
+
+# Dify API関連の一時ファイル
+outline_review_payload.json
+outline_review_response.json
+dify_*.json
+*_response.json
+*_payload.json
+
+# CTOレビュー結果ファイル（テスト用）
+cto_outline_review.txt
+cto_review_comment.txt
+
+# PR情報ファイル（テスト用）
+pr_info_*.json
+pr_diff.txt
+changed_files.txt
+
+# デバッグ用ファイル
+debug_comment_body.md
+debug_*.md
+
+# macOS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Linux
+*~
+.nfs*
+
+# IDE / エディタ
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Node.js (将来的に使用する可能性)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Python (将来的に使用する可能性)
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+
+# バックアップファイル
+*.bak
+*.backup
+*.old
+
+# 圧縮ファイル
+*.zip
+*.tar.gz
+*.rar
+
+# 設定ファイル（個人用）
+config.local.*
+settings.local.*
+
+# テスト結果
+test-results/
+coverage/
+
+# ビルド成果物
+dist/
+build/
+out/
+
+# キャッシュ
+.cache/
+*.cache
+
+# その他の機密ファイル
+secrets.txt
+private_key*
+*.pem
+*.key
+*.crt
+*.p12
