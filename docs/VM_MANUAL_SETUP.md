@@ -1,3 +1,176 @@
+# VM手動セットアップ手順
+
+踏み台サーバー経由でのWebhookサーバーセットアップ手順です。
+
+## 🔧 フェーズ1: Node.jsアップデート
+
+### **1-1. 現在の状況確認**
+```bash
+# 現在のNode.jsバージョン確認
+node --version
+npm --version
+which node
+
+# OS確認
+cat /etc/redhat-release
+```
+
+### **1-2. 既存Node.jsの削除**
+```bash
+# 既存のNode.jsとnpmを削除
+sudo yum remove -y nodejs npm
+
+# 削除確認
+which node
+# 何も表示されなければOK
+```
+
+### **1-3. NodeSourceリポジトリの追加**
+```bash
+# Node.js 18.x リポジトリを追加
+curl -fsSL https://rpm.nodesource.com/setup_18.x | sudo bash -
+```
+
+### **1-4. Node.js 18のインストール**
+```bash
+# Node.js 18をインストール
+sudo yum install -y nodejs
+
+# バージョン確認
+node --version
+npm --version
+```
+
+### **1-5. 開発ツールのインストール**
+```bash
+# ネイティブモジュールビルドに必要
+sudo yum groupinstall -y "Development Tools"
+sudo yum install -y gcc-c++ make python2
+```
+
+---
+
+## 📁 フェーズ2: ディレクトリとファイル準備
+
+### **2-1. 作業ディレクトリ作成**
+```bash
+# Webhookサーバー用ディレクトリ作成
+sudo mkdir -p /opt/webhook-server
+sudo chown $USER:$USER /opt/webhook-server
+mkdir -p /opt/webhook-server/logs
+cd /opt/webhook-server
+```
+
+### **2-2. 必要ファイルの作成**
+
+#### **package.json**
+```bash
+cat > package.json << 'EOF'
+{
+  "name": "internal-webhook-server",
+  "version": "1.0.0",
+  "description": "Internal VM webhook server for Dify CTO Review Bot",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js",
+    "test": "node test-server.js",
+    "pm2:start": "pm2 start ecosystem.config.js",
+    "pm2:stop": "pm2 stop ecosystem.config.js",
+    "pm2:restart": "pm2 restart ecosystem.config.js",
+    "pm2:delete": "pm2 delete ecosystem.config.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "winston": "^3.10.0",
+    "node-fetch": "^2.7.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  },
+  "keywords": [
+    "webhook",
+    "github",
+    "dify",
+    "ai",
+    "code-review",
+    "internal"
+  ],
+  "author": "shibuya-yumi",
+  "license": "MIT"
+}
+EOF
+```
+
+#### **ecosystem.config.js**
+```bash
+cat > ecosystem.config.js << 'EOF'
+// PM2 設定ファイル
+module.exports = {
+  apps: [{
+    name: 'webhook-server',
+    script: 'server.js',
+    instances: 1,
+    autorestart: true,
+    watch: false,
+    max_memory_restart: '1G',
+    env: {
+      NODE_ENV: 'production',
+      PORT: 3000
+    },
+    env_production: {
+      NODE_ENV: 'production',
+      PORT: 443,
+      USE_HTTPS: 'true'
+    },
+    log_date_format: 'YYYY-MM-DD HH:mm:ss Z',
+    error_file: './logs/err.log',
+    out_file: './logs/out.log',
+    log_file: './logs/combined.log',
+    time: true
+  }]
+};
+EOF
+```
+
+#### **環境変数ファイル**
+```bash
+cat > .env << 'EOF'
+# 社内VM用環境変数設定
+
+# Dify API設定
+DIFY_API_KEY=your_dify_api_key_here
+DIFY_API_URL=https://api.iruka.dev/v1/chat-messages
+
+# GitHub設定
+GITHUB_TOKEN=your_github_token_here
+
+# サーバー設定
+PORT=3000
+NODE_ENV=production
+
+# HTTPS設定（本番環境）
+USE_HTTPS=true
+SSL_KEY_PATH=/etc/ssl/private/server.key
+SSL_CERT_PATH=/etc/ssl/certs/server.crt
+
+# ログ設定
+LOG_LEVEL=info
+EOF
+```
+
+---
+
+## 🚀 フェーズ3: メインサーバーファイル作成
+
+### **3-1. server.js作成（長いファイルなので分割）**
+
+#### **Part 1: 基本設定とミドルウェア**
+```bash
+cat > server.js << 'EOF'
 // 社内VM用のWebhookサーバー (Node.js + Express)
 // GitHub Webhook → 社内VM → Dify API → GitHub PR Comment
 
@@ -50,6 +223,12 @@ app.get('/health', (req, res) => {
         uptime: process.uptime()
     });
 });
+EOF
+```
+
+#### **Part 2: メインWebhookエンドポイント**
+```bash
+cat >> server.js << 'EOF'
 
 // メインのWebhookエンドポイント
 app.post('/webhook', async (req, res) => {
@@ -130,6 +309,12 @@ app.post('/webhook', async (req, res) => {
         });
     }
 });
+EOF
+```
+
+#### **Part 3: ヘルパー関数**
+```bash
+cat >> server.js << 'EOF'
 
 // outline.mdファイルを取得
 async function fetchOutlineContent(pullRequest, requestId) {
@@ -224,6 +409,12 @@ async function callDifyAPI(content, requestId) {
     
     return result.trim();
 }
+EOF
+```
+
+#### **Part 4: サーバー起動部分**
+```bash
+cat >> server.js << 'EOF'
 
 // PRにコメントを投稿
 async function postPRComment(pullRequest, review, requestId) {
@@ -330,3 +521,140 @@ if (USE_HTTPS) {
 if (!global.fetch) {
     global.fetch = require('node-fetch');
 }
+EOF
+```
+
+---
+
+## 📦 フェーズ4: 依存関係とセキュリティ設定
+
+### **4-1. 依存関係のインストール**
+```bash
+# npmパッケージをインストール
+npm install
+
+# インストール確認
+npm list
+```
+
+### **4-2. PM2のインストール**
+```bash
+# PM2をグローバルインストール
+sudo npm install -g pm2
+
+# インストール確認
+pm2 --version
+```
+
+### **4-3. SSL証明書の作成**
+```bash
+# SSL証明書ディレクトリ作成
+sudo mkdir -p /etc/ssl/private /etc/ssl/certs
+
+# 自己署名証明書を生成
+sudo openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+  -keyout /etc/ssl/private/server.key \
+  -out /etc/ssl/certs/server.crt \
+  -subj "/C=JP/ST=Tokyo/L=Tokyo/O=Company/CN=d-tb-d035"
+
+# 権限設定
+sudo chmod 600 /etc/ssl/private/server.key
+sudo chmod 644 /etc/ssl/certs/server.crt
+
+# 確認
+ls -la /etc/ssl/private/server.key
+ls -la /etc/ssl/certs/server.crt
+```
+
+### **4-4. ファイアウォール設定**
+```bash
+# firewalldの状態確認
+systemctl status firewalld
+
+# ポート開放（firewalldが動作している場合）
+sudo firewall-cmd --permanent --add-port=3000/tcp
+sudo firewall-cmd --permanent --add-port=443/tcp
+sudo firewall-cmd --reload
+
+# 設定確認
+sudo firewall-cmd --list-ports
+```
+
+---
+
+## ⚙️ フェーズ5: 環境変数設定と起動
+
+### **5-1. 環境変数の編集**
+```bash
+# .envファイルを編集
+nano .env
+
+# 以下の値を実際の値に変更してください：
+# DIFY_API_KEY=your_actual_dify_api_key
+# GITHUB_TOKEN=your_actual_github_token
+```
+
+### **5-2. テスト起動**
+```bash
+# HTTPモードでテスト起動
+USE_HTTPS=false PORT=3000 npm start
+
+# 別のターミナルでヘルスチェック
+curl http://localhost:3000/health
+
+# Ctrl+C で停止
+```
+
+### **5-3. 本番起動（PM2）**
+```bash
+# PM2で起動
+pm2 start ecosystem.config.js
+
+# 自動起動設定
+pm2 startup
+# 表示されるコマンドをコピーして実行
+
+# 設定保存
+pm2 save
+
+# 状態確認
+pm2 status
+pm2 logs webhook-server
+```
+
+---
+
+## 🧪 フェーズ6: 動作確認
+
+### **6-1. ローカルテスト**
+```bash
+# ヘルスチェック
+curl https://localhost/health
+
+# または
+curl http://localhost:3000/health
+```
+
+### **6-2. ログ確認**
+```bash
+# PM2ログ
+pm2 logs webhook-server
+
+# アプリケーションログ
+tail -f /opt/webhook-server/webhook.log
+```
+
+---
+
+## 📋 完了チェックリスト
+
+- [ ] Node.js v18.x がインストール済み
+- [ ] 全ファイルが作成済み
+- [ ] 依存関係がインストール済み
+- [ ] SSL証明書が作成済み
+- [ ] ファイアウォール設定完了
+- [ ] 環境変数が設定済み
+- [ ] PM2で起動済み
+- [ ] ヘルスチェックが成功
+
+すべて完了したら、GitHubでWebhook設定を行います！
