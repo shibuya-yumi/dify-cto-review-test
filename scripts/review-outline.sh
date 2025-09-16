@@ -140,20 +140,36 @@ if [ -f "./scripts/retry-dify-api.sh" ]; then
             else
                 log_warn "Cloudflareバイパス手法も失敗しました。プロキシ経由を試行します"
                 
-                # プロキシ経由での最終試行
-                if [ -f "./scripts/proxy-dify-api.sh" ]; then
-                    chmod +x ./scripts/proxy-dify-api.sh
-                    log_info "プロキシ経由でDify APIを呼び出します"
+                # 高度なプロキシ手法での試行
+                if [ -f "./scripts/advanced-proxy.sh" ]; then
+                    chmod +x ./scripts/advanced-proxy.sh
+                    log_info "高度なプロキシ手法でDify APIを呼び出します"
                     
-                    if ./scripts/proxy-dify-api.sh "$PAYLOAD_FILE" "$RESPONSE_FILE"; then
-                        log_success "プロキシ経由でのDify API呼び出し成功"
+                    if ./scripts/advanced-proxy.sh "$PAYLOAD_FILE" "$RESPONSE_FILE"; then
+                        log_success "高度なプロキシ手法でのDify API呼び出し成功"
                         HTTP_STATUS="200"
                     else
-                        log_error "プロキシ経由でのDify API呼び出しも失敗しました"
-                        HTTP_STATUS="403"
+                        log_warn "高度なプロキシ手法も失敗しました。標準プロキシを試行します"
+                        
+                        # 標準プロキシ経由での最終試行
+                        if [ -f "./scripts/proxy-dify-api.sh" ]; then
+                            chmod +x ./scripts/proxy-dify-api.sh
+                            log_info "標準プロキシ経由でDify APIを呼び出します"
+                            
+                            if ./scripts/proxy-dify-api.sh "$PAYLOAD_FILE" "$RESPONSE_FILE"; then
+                                log_success "標準プロキシ経由でのDify API呼び出し成功"
+                                HTTP_STATUS="200"
+                            else
+                                log_error "標準プロキシ経由でのDify API呼び出しも失敗しました"
+                                HTTP_STATUS="403"
+                            fi
+                        else
+                            log_error "標準プロキシスクリプトが見つかりません"
+                            HTTP_STATUS="403"
+                        fi
                     fi
                 else
-                    log_error "プロキシスクリプトが見つかりません"
+                    log_error "高度なプロキシスクリプトが見つかりません"
                     HTTP_STATUS="403"
                 fi
             fi

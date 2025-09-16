@@ -50,8 +50,27 @@ for proxy in "${PROXY_SERVICES[@]}"; do
     echo "HTTPステータス: $HTTP_STATUS"
     
     if [ "$HTTP_STATUS" = "200" ]; then
-        echo "✅ プロキシ経由でのAPI呼び出し成功: $proxy"
-        exit 0
+        # レスポンス内容を確認して実際に成功かどうかチェック
+        if [ -f "$RESPONSE_FILE" ]; then
+            RESPONSE_CONTENT=$(head -5 "$RESPONSE_FILE")
+            echo "レスポンス内容（最初の5行）:"
+            echo "$RESPONSE_CONTENT" | sed 's/^/  /'
+            
+            # 403エラーページかどうかチェック
+            if echo "$RESPONSE_CONTENT" | grep -q "403 Forbidden\|403</title>\|Forbidden"; then
+                echo "❌ プロキシ経由でも実際は403エラー: $proxy"
+            elif echo "$RESPONSE_CONTENT" | grep -q "data:\|event:\|{"; then
+                echo "✅ プロキシ経由でのAPI呼び出し成功: $proxy"
+                exit 0
+            else
+                echo "⚠️  プロキシ経由での応答が不明: $proxy"
+                echo "レスポンス全体（最初の10行）:"
+                head -10 "$RESPONSE_FILE" | sed 's/^/    /'
+            fi
+        else
+            echo "✅ プロキシ経由でのAPI呼び出し成功: $proxy"
+            exit 0
+        fi
     else
         echo "❌ プロキシ経由での呼び出し失敗: $proxy (HTTP $HTTP_STATUS)"
         

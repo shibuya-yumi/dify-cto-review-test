@@ -1,0 +1,87 @@
+name: Dify CTO Review (Self-hosted)
+
+on:
+  pull_request:
+    types: [labeled]
+
+jobs:
+  cto-review:
+    # Self-hosted runnerを使用（IPブロック回避）
+    runs-on: self-hosted
+    
+    # cto-reviewラベルが付いた場合のみ実行
+    if: contains(github.event.label.name, 'cto-review')
+    
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Install jq
+      run: |
+        if ! command -v jq &> /dev/null; then
+          if [[ "$OSTYPE" == "darwin"* ]]; then
+            brew install jq
+          elif [[ "$OSTYPE" == "linux-gnu"* ]]; then
+            sudo apt-get update && sudo apt-get install -y jq
+          fi
+        fi
+    
+    - name: Validate environment variables
+      env:
+        DIFY_API_KEY: ${{ secrets.DIFY_API_KEY }}
+        DIFY_API_URL: ${{ secrets.DIFY_API_URL }}
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        SKIP_API_TEST: "true"
+      run: |
+        chmod +x scripts/validate-env.sh
+        ./scripts/validate-env.sh
+    
+    - name: Set PR information
+      run: |
+        echo "PR_NUMBER=${{ github.event.pull_request.number }}" >> $GITHUB_ENV
+    
+    - name: Review outline.md with CTO perspective
+      env:
+        DIFY_API_KEY: ${{ secrets.DIFY_API_KEY }}
+        DIFY_API_URL: ${{ secrets.DIFY_API_URL }}
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        echo "::group::outline.md CTOレビュー"
+        chmod +x scripts/review-outline.sh
+        ./scripts/review-outline.sh
+        echo "::endgroup::"
+    
+    - name: Post comment to PR
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        PR_NUMBER: ${{ env.PR_NUMBER }}
+      run: |
+        echo "::group::PRコメント投稿"
+        
+        # PRコメント内容を生成
+        chmod +x scripts/create-pr-comment.sh
+        ./scripts/create-pr-comment.sh "cto_outline_review.txt" "pr_comment.md"
+        
+        # PRにコメントを投稿
+        COMMENT_BODY=$(cat pr_comment.md)
+        curl -X POST \
+          -H "Authorization: token $GITHUB_TOKEN" \
+          -H "Accept: application/vnd.github.v3+json" \
+          -H "Content-Type: application/json" \
+          -d "{\"body\": $(echo "$COMMENT_BODY" | jq -Rs .)}" \
+          "https://api.github.com/repos/${{ github.repository }}/issues/$PR_NUMBER/comments"
+        
+        echo "::endgroup::"
+    
+    - name: Cleanup temporary files
+      if: always()
+      run: |
+        echo "::group::一時ファイルクリーンアップ"
+        rm -f dify_payload.json dify_response.json cto_outline_review.txt pr_comment.md
+        echo "一時ファイルをクリーンアップしました"
+        echo "::endgroup::"
