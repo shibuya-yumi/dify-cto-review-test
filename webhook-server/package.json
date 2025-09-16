@@ -1,0 +1,26 @@
+{
+  "name": "dify-cto-review-webhook",
+  "version": "1.0.0",
+  "description": "Webhook server for Dify CTO Review Bot",
+  "main": "api/webhook.js",
+  "scripts": {
+    "dev": "vercel dev",
+    "build": "vercel build",
+    "deploy": "vercel --prod"
+  },
+  "dependencies": {
+    "node-fetch": "^3.3.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "keywords": [
+    "webhook",
+    "github",
+    "dify",
+    "ai",
+    "code-review"
+  ],
+  "author": "shibuya-yumi",
+  "license": "MIT"
+}

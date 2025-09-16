@@ -39,7 +39,7 @@ jobs:
           DIFY_API_KEY: ${{ secrets.DIFY_API_KEY }}
           DIFY_API_URL: ${{ secrets.DIFY_API_URL }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          SKIP_API_TEST: "true"
+          SKIP_API_TEST: "false"
         run: |
           echo "環境変数を検証中..."
           chmod +x ./scripts/validate-env.sh
