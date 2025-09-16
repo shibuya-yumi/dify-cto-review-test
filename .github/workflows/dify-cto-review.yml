@@ -1,9 +1,9 @@
 name: Dify CTO Review Bot
 
-# PRにラベルが追加された時にトリガー
+# Webhookからのイベントを受け取るように変更
 on:
-  pull_request:
-    types: [labeled]
+  repository_dispatch:
+    types: [cto-review-requested]
 
 permissions:
   contents: read
@@ -12,8 +12,6 @@ permissions:
 
 jobs:
   dify-cto-review:
-    # 特定のラベルが追加された場合のみ実行
-    if: contains(github.event.label.name, 'cto-review')
     runs-on: ubuntu-latest
     
     steps:
@@ -48,12 +46,13 @@ jobs:
       - name: Set PR information
         id: pr-info
         run: |
-          echo "PR番号: ${{ github.event.number }}"
-          echo "PRタイトル: ${{ github.event.pull_request.title }}"
-          echo "追加されたラベル: ${{ github.event.label.name }}"
+          # Webhookから受け取ったPR情報を設定
+          echo "PR番号: ${{ github.event.client_payload.pull_request.number }}"
+          echo "PRタイトル: ${{ github.event.client_payload.pull_request.title }}"
           
-          # 基本的なPR情報を環境変数として設定
-          echo "PR_NUMBER=${{ github.event.number }}" >> $GITHUB_ENV
+          # PR情報を環境変数として設定
+          echo "PR_NUMBER=${{ github.event.client_payload.pull_request.number }}" >> $GITHUB_ENV
+          echo "PR_SHA=${{ github.event.client_payload.pull_request.head.sha }}" >> $GITHUB_ENV
       
       - name: Review outline.md with CTO perspective
         id: review-outline
