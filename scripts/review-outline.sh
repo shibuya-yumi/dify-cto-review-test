@@ -129,20 +129,36 @@ if [ -f "./scripts/retry-dify-api.sh" ]; then
     else
         log_warn "リトライ機能付きDify API呼び出しが失敗しました。プロキシ経由を試行します"
         
-        # プロキシ経由での試行
-        if [ -f "./scripts/proxy-dify-api.sh" ]; then
-            chmod +x ./scripts/proxy-dify-api.sh
-            log_info "プロキシ経由でDify APIを呼び出します"
+        # Cloudflareバイパス手法での試行
+        if [ -f "./scripts/cloudflare-bypass.sh" ]; then
+            chmod +x ./scripts/cloudflare-bypass.sh
+            log_info "Cloudflareバイパス手法でDify APIを呼び出します"
             
-            if ./scripts/proxy-dify-api.sh "$PAYLOAD_FILE" "$RESPONSE_FILE"; then
-                log_success "プロキシ経由でのDify API呼び出し成功"
+            if ./scripts/cloudflare-bypass.sh "$PAYLOAD_FILE" "$RESPONSE_FILE"; then
+                log_success "Cloudflareバイパス手法でのDify API呼び出し成功"
                 HTTP_STATUS="200"
             else
-                log_error "プロキシ経由でのDify API呼び出しも失敗しました"
-                HTTP_STATUS="403"
+                log_warn "Cloudflareバイパス手法も失敗しました。プロキシ経由を試行します"
+                
+                # プロキシ経由での最終試行
+                if [ -f "./scripts/proxy-dify-api.sh" ]; then
+                    chmod +x ./scripts/proxy-dify-api.sh
+                    log_info "プロキシ経由でDify APIを呼び出します"
+                    
+                    if ./scripts/proxy-dify-api.sh "$PAYLOAD_FILE" "$RESPONSE_FILE"; then
+                        log_success "プロキシ経由でのDify API呼び出し成功"
+                        HTTP_STATUS="200"
+                    else
+                        log_error "プロキシ経由でのDify API呼び出しも失敗しました"
+                        HTTP_STATUS="403"
+                    fi
+                else
+                    log_error "プロキシスクリプトが見つかりません"
+                    HTTP_STATUS="403"
+                fi
             fi
         else
-            log_error "プロキシスクリプトが見つかりません"
+            log_error "Cloudflareバイパススクリプトが見つかりません"
             HTTP_STATUS="403"
         fi
     fi

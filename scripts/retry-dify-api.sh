@@ -91,5 +91,20 @@ for attempt in $(seq 1 $MAX_RETRIES); do
     fi
 done
 
+echo "❌ 直接呼び出しがすべて失敗しました。プロキシ経由を試行します..."
+
+# プロキシ経由での最終試行
+if [ -f "./scripts/proxy-dify-api.sh" ]; then
+    chmod +x ./scripts/proxy-dify-api.sh
+    echo "プロキシ経由でのAPI呼び出しを試行中..."
+    
+    if ./scripts/proxy-dify-api.sh "$PAYLOAD_FILE" "$RESPONSE_FILE"; then
+        echo "✅ プロキシ経由でのAPI呼び出し成功"
+        exit 0
+    else
+        echo "❌ プロキシ経由でも失敗しました"
+    fi
+fi
+
 echo "❌ すべての試行が失敗しました"
 exit 1
