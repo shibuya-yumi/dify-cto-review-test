@@ -19,104 +19,15 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-        with:
-          # PR全体の差分を取得するため、fetch-depthを0に設定
-          fetch-depth: 0
       
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '18'
-      
-      - name: Install dependencies
-        run: |
-          # jqをインストール（JSONパース用）
-          sudo apt-get update
-          sudo apt-get install -y jq
-      
-      - name: Validate environment variables
+      - name: Call Webhook Server
         env:
-          DIFY_API_KEY: ${{ secrets.DIFY_API_KEY }}
-          DIFY_API_URL: ${{ secrets.DIFY_API_URL }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          SKIP_API_TEST: "false"
+          WEBHOOK_SERVER_URL: "http://d-tb-d1268.k-dev.in"
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
-          echo "環境変数を検証中..."
-          chmod +x ./scripts/validate-env.sh
-          ./scripts/validate-env.sh
-      
-      - name: Set PR information
-        id: pr-info
-        run: |
-          # PR情報を設定
-          echo "PR番号: ${{ github.event.pull_request.number }}"
-          echo "PRタイトル: ${{ github.event.pull_request.title }}"
-          echo "追加されたラベル: ${{ github.event.label.name }}"
-          
-          # PR情報を環境変数として設定
-          echo "PR_NUMBER=${{ github.event.pull_request.number }}" >> $GITHUB_ENV
-          echo "PR_SHA=${{ github.event.pull_request.head.sha }}" >> $GITHUB_ENV
-      
-      - name: Review outline.md with CTO perspective
-        id: review-outline
-        env:
-          DIFY_API_KEY: ${{ secrets.DIFY_API_KEY }}
-          DIFY_API_URL: ${{ secrets.DIFY_API_URL }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          LOG_LEVEL: 1  # INFO レベル
-        run: |
-          echo "::group::outline.mdをCTOの視点でレビュー中..."
-          
-          # outline.mdファイルの存在確認
-          if [ ! -f "outline.md" ]; then
-            echo "::error title=ファイル不存在::outline.mdファイルが見つかりません"
-            echo "PRにoutline.mdファイルが含まれているか確認してください"
-            exit 1
-          fi
-          
-          # outline.mdレビュースクリプトを実行
-          chmod +x ./scripts/review-outline.sh
-          ./scripts/review-outline.sh outline.md
-          
-          echo "::endgroup::"
-      
-      - name: Post comment to PR
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          echo "::group::PRにCTOレビューコメントを投稿中..."
-          
-          # CTOレビューコメントを読み込み
-          REVIEW_FILE="cto_outline_review.txt"
-          if [ ! -f "$REVIEW_FILE" ]; then
-            echo "::error title=ファイル不存在::CTOレビューファイルが見つかりません: $REVIEW_FILE"
-            exit 1
-          fi
-          
-          CTO_REVIEW=$(cat "$REVIEW_FILE")
-          
-          # コメント内容を準備（Markdown形式）
-          chmod +x ./scripts/create-pr-comment.sh
-          ./scripts/create-pr-comment.sh "$REVIEW_FILE" /tmp/final_comment.md
-          
-          COMMENT_BODY=$(cat /tmp/final_comment.md)
-          
-          # GitHub APIを使用してPRにコメント投稿
-          HTTP_STATUS=$(curl -w "%{http_code}" -s -o /tmp/comment_response.json \
-            -X POST \
-            -H "Authorization: token $GITHUB_TOKEN" \
-            -H "Accept: application/vnd.github.v3+json" \
-            "https://api.github.com/repos/$GITHUB_REPOSITORY/issues/${{ env.PR_NUMBER }}/comments" \
-            -d "$(jq -n --arg body "$COMMENT_BODY" '{body: $body}')")
-          
-          if [ "$HTTP_STATUS" -eq 201 ]; then
-            echo "::notice title=コメント投稿成功::CTOレビューコメントをPR #${{ env.PR_NUMBER }} に投稿しました"
-            COMMENT_URL=$(jq -r '.html_url' /tmp/comment_response.json)
-            echo "コメントURL: $COMMENT_URL"
-          else
-            echo "::error title=コメント投稿失敗::GitHub API呼び出しに失敗しました (HTTP $HTTP_STATUS)"
-            cat /tmp/comment_response.json
-            exit 1
-          fi
-          
+          echo "::group::Webhookサーバーにリクエスト送信"
+          chmod +x ./scripts/call-webhook-server.sh
+          ./scripts/call-webhook-server.sh
           echo "::endgroup::"
