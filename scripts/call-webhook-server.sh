@@ -45,7 +45,7 @@ HTTP_STATUS=$(curl -w "%{http_code}" -s -o response.json \
   -X POST \
   -H "Content-Type: application/json" \
   -d "$payload" \
-  "${WEBHOOK_SERVER_URL}/webhook")
+  "${WEBHOOK_SERVER_URL}")
 
 if [[ "$HTTP_STATUS" == "200" ]]; then
   echo "[SUCCESS] Webhookサーバーの呼び出しに成功しました"
