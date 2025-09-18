@@ -22,7 +22,7 @@ jobs:
       
       - name: Call Webhook Server
         env:
-          WEBHOOK_SERVER_URL: "http://d-tb-d1268.k-dev.in"
+          WEBHOOK_SERVER_URL: "http://d-tb-d1268.k-dev.in/webhook"
           PR_NUMBER: ${{ github.event.pull_request.number }}
           PR_TITLE: ${{ github.event.pull_request.title }}
           PR_SHA: ${{ github.event.pull_request.head.sha }}
