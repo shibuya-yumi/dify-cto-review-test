@@ -20,12 +20,20 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
       
+      - name: Check Webhook Server Health
+        env:
+          WEBHOOK_SERVER_URL: "http://d-tb-d1268.k-dev.in/webhook"
+        run: |
+          chmod +x ./scripts/check-webhook-server.sh
+          ./scripts/check-webhook-server.sh
+
       - name: Call Webhook Server
         env:
           WEBHOOK_SERVER_URL: "http://d-tb-d1268.k-dev.in/webhook"
           PR_NUMBER: ${{ github.event.pull_request.number }}
           PR_TITLE: ${{ github.event.pull_request.title }}
           PR_SHA: ${{ github.event.pull_request.head.sha }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
         run: |
           echo "::group::Webhookサーバーにリクエスト送信"
           chmod +x ./scripts/call-webhook-server.sh
